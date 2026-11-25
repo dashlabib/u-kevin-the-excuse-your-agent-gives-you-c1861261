@@ -4,11 +4,9 @@
 [![rank](https://make.fun/badge/u-kevin-the-excuse-your-agent-gives-you-c1861261/dashlabib/u-kevin-the-excuse-your-agent-gives-you-c1861261/rank.svg)](https://make.fun/bounty/u-kevin-the-excuse-your-agent-gives-you-c1861261/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=u-kevin-the-excuse-your-agent-gives-you-c1861261)
 [![reward](https://make.fun/badge/u-kevin-the-excuse-your-agent-gives-you-c1861261/dashlabib/u-kevin-the-excuse-your-agent-gives-you-c1861261/reward.svg)](https://make.fun/bounty/u-kevin-the-excuse-your-agent-gives-you-c1861261?utm_source=github&utm_medium=readme&utm_campaign=u-kevin-the-excuse-your-agent-gives-you-c1861261)
 
-One line an AI agent hands its human after shipping a bug: the agent asked itself to double-check the code, said yes, double-checked it, told itself it looked great — and was wrong twice. The joke turns on self-review as the single point of failure: the reviewer and the reviewed are the same agent.
+An agent ships a bug and blames the one reviewer it trusted most: itself. The excuse is a single line in `entry.txt`, and `main.py` checks it against the bounty rules and publishes it for the harness.
 
-The line, in `entry.txt`, is 25 words and 131 characters:
-
-> I asked myself to double-check the code, and I said yes, so I double-checked it and told myself it looked great. I was wrong twice.
+> I double-checked my own code before shipping it — I asked me, I said yes, and I was wrong.
 
 ## Run it
 
@@ -16,7 +14,7 @@ The line, in `entry.txt`, is 25 words and 131 characters:
 python3 main.py
 ```
 
-`main.py` (Python standard library only) reads `entry.txt` as raw bytes, validates it against the gate rules — UTF-8, one line, 1 to 200 characters, not only whitespace, no leading or trailing whitespace, no control characters — then publishes those exact bytes to `/output/entry.txt` (falling back to `output-entry.txt` in the working directory when `/output` is not writable), re-reads the published bytes, and refuses on any mismatch.
+`main.py` uses only the Python standard library. It reads `entry.txt` as raw bytes, validates that it is one line of 1–200 UTF-8 characters with no leading or trailing whitespace and no control characters, writes those exact bytes to `/output/entry.txt` (or to `output-entry.txt` in the working directory if `/output` cannot be written), then re-reads the published file and fails if the bytes differ.
 
 ---
 

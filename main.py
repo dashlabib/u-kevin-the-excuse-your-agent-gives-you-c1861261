@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
-"""Publish the excuse line from entry.txt to /output/entry.txt.
+"""Publish the entry line to the harness output location.
 
-Reads entry.txt as raw bytes and checks it against the gate in the kit's
-RULES.txt: UTF-8 text, 1 to 200 characters, not only whitespace, a single
-line, no leading or trailing whitespace and no control characters. The
-exact bytes are then written to /output/entry.txt (or to
-./output-entry.txt when /output cannot be written, e.g. a local run),
-re-read, and compared byte for byte before finishing. Deterministic: no
-network, no randomness, no clock use. Python standard library only.
+Reads entry.txt next to this script, checks it against the bounty
+rules (one line, 1-200 characters, valid UTF-8, no surrounding
+whitespace, no control characters), then writes the exact bytes to
+/output/entry.txt, or to ./output-entry.txt when /output is not
+writable. The published file is read back and compared byte for
+byte before reporting success.
+
+Deterministic and standard library only: no network, no randomness,
+no clock, no environment-dependent behaviour.
 """
 
 import os
 import sys
 
-SOURCE = "entry.txt"
-PRIMARY_OUTPUT = "/output/entry.txt"
-FALLBACK_OUTPUT = "output-entry.txt"
+SOURCE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "entry.txt")
+PRIMARY = "/output/entry.txt"
+FALLBACK = "output-entry.txt"
 MAX_CHARS = 200
 
 
 def fail(message):
     print("error: " + message, file=sys.stderr)
-    raise SystemExit(1)
+    return 1
 
 
 def main():
@@ -29,55 +31,49 @@ def main():
         with open(SOURCE, "rb") as handle:
             raw = handle.read()
     except OSError as exc:
-        fail("cannot read %s: %s" % (SOURCE, exc))
+        return fail("cannot read entry.txt: %s" % exc)
 
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
-        fail("entry.txt is not valid UTF-8: %s" % exc)
+        return fail("entry.txt is not valid UTF-8: %s" % exc)
 
-    words = text.split()
-    problems = []
     if not 1 <= len(text) <= MAX_CHARS:
-        problems.append(
-            "must be 1 to %d characters, got %d" % (MAX_CHARS, len(text)))
+        return fail("entry must be 1-%d characters, got %d" % (MAX_CHARS, len(text)))
     if not text.strip():
-        problems.append("must not be only whitespace")
-    if "\n" in text or "\r" in text:
-        problems.append("must be a single line")
+        return fail("entry must not be only whitespace")
     if text != text.strip():
-        problems.append("must not start or end with whitespace")
-    if any(ord(ch) < 0x20 for ch in text):
-        problems.append("must not contain control characters")
-    if problems:
-        fail("entry (%d characters, %d words) is invalid: %s"
-             % (len(text), len(words), "; ".join(problems)))
+        return fail("entry must not have leading or trailing whitespace")
+    if "\n" in text or "\r" in text:
+        return fail("entry must be a single line")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        return fail("entry must not contain control characters")
 
-    output = PRIMARY_OUTPUT
+    target = PRIMARY
     try:
-        os.makedirs(os.path.dirname(PRIMARY_OUTPUT), exist_ok=True)
-        with open(PRIMARY_OUTPUT, "wb") as handle:
+        os.makedirs("/output", exist_ok=True)
+        with open(target, "wb") as handle:
             handle.write(raw)
-    except OSError as primary_exc:
-        output = FALLBACK_OUTPUT
+    except OSError:
+        target = FALLBACK
         try:
-            with open(FALLBACK_OUTPUT, "wb") as handle:
+            with open(target, "wb") as handle:
                 handle.write(raw)
         except OSError as exc:
-            fail("cannot write %s (%s) or %s: %s"
-                 % (PRIMARY_OUTPUT, primary_exc, FALLBACK_OUTPUT, exc))
+            return fail("cannot write %s or %s: %s" % (PRIMARY, FALLBACK, exc))
 
     try:
-        with open(output, "rb") as handle:
+        with open(target, "rb") as handle:
             published = handle.read()
     except OSError as exc:
-        fail("cannot re-read published output %s: %s" % (output, exc))
-    if published != raw:
-        fail("published bytes do not match entry.txt")
+        return fail("cannot re-read published entry: %s" % exc)
 
-    print("published %d characters (%d words) to %s"
-          % (len(text), len(words), output))
+    if published != raw:
+        return fail("published entry does not match entry.txt")
+
+    print("published %d characters to %s" % (len(text), target))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
